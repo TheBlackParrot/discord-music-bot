@@ -1,0 +1,17 @@
+{
+	"discord": {
+		"token": "[BOT USER TOKEN]"
+	},
+
+	"enable": {
+		"caching": true,
+		"manual_queue": true
+	},
+
+	"lists": [
+		{
+			"type": "remote",
+			"path": "https://raw.githubusercontent.com/TheBlackParrot/discord-music-bot-lists/master/vaporwave.json"
+		}
+	]
+}
