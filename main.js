@@ -1,6 +1,8 @@
 const Discord = require('discord.js');
 const DiscordClient = new Discord.Client();
+
 const fs = require('fs');
+const crypto = require('crypto');
 
 const settings = require('./settings.json');
 
@@ -33,11 +35,15 @@ cache folder structure:
 	root/music_cache/[manager]/[safe_name]/[song_uid]
 */
 
+function getURLHash(url) {
+	return crypto.createHash('sha256').update(url).digest("hex");
+}
+
 function isCached(list, index) {
 	var song = list.library[index];
 
-	var dir = __dirname + "/music_cache/" + list.manager + "/" + list.safe_name;
-	var path = dir + "/" + song.uid;
+	var dir = __dirname + "/music_cache";
+	var path = dir + "/" + getURLHash(song.url);
 
 	mkdirp.sync(dir, {"mode": "754"});
 
@@ -50,7 +56,7 @@ function isCached(list, index) {
 
 function cacheTrack(list, index, callback) {
 	var song = list.library[index];
-	var path = __dirname + "/music_cache/" + list.manager + "/" + list.safe_name + "/" + song.uid;
+	var path = __dirname + "/music_cache/" + getURLHash(song.url);
 
 	var stream = fs.createWriteStream(path);
 

@@ -2,23 +2,21 @@
 {
 	"name": "Example List",
 	"manager": "Your Name Here",
-	"safe_name": "example_list",
+	"fmt_version": 1,
 
 	"library": [
 		{
 			"url": "[TRACK URL]",
 			"artist": "Rick Astley",
 			"title": "Never Gonna Give You Up",
-			"timestamp": [0 OR UNIX TIMESTAMP],
-			"uid": "[UNIQUE IDENTIFIER, usually a number]"
+			"timestamp": [0 OR UNIX TIMESTAMP]
 		},
 
 		{
 			"url": "https://midwestcollective.bandcamp.com/track/resonance",
 			"artist": "HOME",
 			"title": "Resonance",
-			"timestamp": 1486791179,
-			"uid": "1"
+			"timestamp": 1486791179
 		}
 	]
 }
