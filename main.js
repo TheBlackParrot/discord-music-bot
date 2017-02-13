@@ -100,7 +100,12 @@ function startStreaming(rstream, channel) {
 			dispatcher.passes = 2;
 
 			dispatcher.on('end', function(reason) {
-				console.log("PLAYBACK FINISHED.")
+				console.log("PLAYBACK FINISHED.");
+
+				if(reason == "stopped") {
+					return;
+				}
+
 				if(queue[guildID]["list"].length > 0) {
 					console.log("CONTINUING IN QUEUE...");
 					queue[guildID]["list"].splice(0, 1);
@@ -289,7 +294,7 @@ DiscordClient.on('message', function(message) {
 				var connection = message.guild.voiceConnection
 				if(connection) {
 					if(connection.player) {
-						connection.player.dispatcher.end();
+						connection.player.dispatcher.end("stopped");
 						message.reply(":octagonal_sign: **Stopped playback.**");
 					}
 				}
@@ -440,7 +445,7 @@ DiscordClient.on('message', function(message) {
 
 			else if(params[1] == "skip" || params[1] == "next" || params[1] == ":track_next:") {
 				var guildID = message.guild.id;
-				
+
 				if(!("skippers" in queue[guildID])) {
 					queue[guildID]["skippers"] = [];
 				}
