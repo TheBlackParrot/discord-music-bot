@@ -22,6 +22,7 @@ var streams_w = {};
 var vols = {};
 var channel_designations = {};
 var queue = {};
+var lists = {};
 
 function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -179,11 +180,18 @@ function getListData(index, callback) {
 	var source = settings.lists[index];
 	console.log(source);
 
+	if(source.path in lists) {
+		console.log("CACHED LIST");
+		callback(lists[source.path]);
+		return;
+	}
+
 	switch(source["type"]) {
 		case "local":
 			var data = JSON.parse(fs.readFileSync(source.path, 'utf8'));
 			data["url"] = source.path;
 
+			lists[source.path] = data;
 			callback(data);
 			break;
 
@@ -198,6 +206,7 @@ function getListData(index, callback) {
 						var data = JSON.parse(res.body.toString());
 						data["url"] = source.path;
 
+						lists[source.path] = data;
 						callback(data);
 					}
 				});
@@ -393,6 +402,17 @@ DiscordClient.on('message', function(message) {
 					return;
 				}
 
+				if(params.length == 4) {
+					if(params[3] == "refresh") {
+						var source = settings.lists[index];
+						lists[source.path] = null;
+
+						getListData(index, function(list) {
+							message.reply("Refreshed " + list.name);
+						});
+					}
+				}
+
 				getListData(index, function(list) {
 					var connection = message.guild.voiceConnection;
 					if(connection) {
@@ -455,6 +475,7 @@ DiscordClient.on('message', function(message) {
 				}
 
 				queue[guildID]["skippers"].push(message.author.id);
+				console.log(queue[guildID]["skippers"]);
 
 				if(queue[guildID]["skippers"].length / room.members.size >= 0.5) {
 					var connection = message.guild.voiceConnection
