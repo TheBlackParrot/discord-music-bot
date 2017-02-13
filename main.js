@@ -68,6 +68,15 @@ function cacheTrack(list, index, callback) {
 	});
 }
 
+function getVoiceChannelName(guildID) {
+	var room = "Music";
+	if(guildID in channel_designations) {
+		room = channel_designations[guildID]
+	}
+
+	return room;	
+}
+
 function startStreaming(rstream, channel) {
 	var _c = channel.guild.voiceConnection
 	if(_c) {
@@ -78,10 +87,7 @@ function startStreaming(rstream, channel) {
 
 	var guildID = channel.guild.id;
 
-	var room = "Music";
-	if(guildID in channel_designations) {
-		room = channel_designations[guildID]
-	}
+	var room = getVoiceChannelName(guildID);
 
 	channel.guild.channels.find("name", room).join()
 		.then(connection => {
@@ -210,6 +216,17 @@ DiscordClient.on('message', function(message) {
 	}
 
 	if(message.author.bot) {
+		return;
+	}
+
+	var room = message.guild.channels.find("name", getVoiceChannelName(guildID));
+	var whom = room.members.get(message.author.id);
+
+	if(whom) {
+		if(!(whom.voiceChannel.equals(room))) {
+			return;
+		}
+	} else {
 		return;
 	}
 
