@@ -119,11 +119,23 @@ function playTrack(channel, guildID, list, index) {
 		channel = most_recent_text_channel[guildID];
 	}
 
+	if(!list) {
+		channel.sendMessage("list was empty, this shouldn't happen?");
+		return;
+	}
+
 	var now_playing = list.library[index];
-	console.log(now_playing);
+
+	if(!now_playing) {
+		channel.sendMessage("now_playing was undefined, this shouldn't happen?");
+		return;
+	}
+
 	console.log("Playing " + now_playing.title + " in \"" + channel.guild.name + "\" (ID " + guildID + ")");
 
-	channel.sendMessage(":musical_note: **" + now_playing.title + "** by *" + now_playing.artist + "*");
+	if(settings.enable.now_playing_notifs) {
+		channel.sendMessage(":musical_note: **" + now_playing.title + "** by *" + now_playing.artist + "*");
+	}
 
 	if(!settings.enable.caching) {
 		if(guildID in streams_w) {
@@ -158,6 +170,7 @@ function playTrack(channel, guildID, list, index) {
 
 function getListData(index, callback) {
 	var source = settings.lists[index];
+	console.log(source);
 
 	switch(source["type"]) {
 		case "local":
@@ -168,12 +181,20 @@ function getListData(index, callback) {
 			break;
 
 		case "remote":
-			request('GET', source.path).done(function(res) {
-				var data = JSON.parse(res.body.toString());
-				data["url"] = source.path;
+			setTimeout(function() {
+				request('GET', source.path).done(function(res) {
+					console.log("RESPONSE CODE: " + res.statusCode.toString());
+					if(res.statusCode >= 300) {
+						var err = new Error('Server responded with status code ' + this.statusCode + ':\n' + this.body.toString());
+						throw err;
+					} else {
+						var data = JSON.parse(res.body.toString());
+						data["url"] = source.path;
 
-				callback(data);
-			});
+						callback(data);
+					}
+				});
+			}, 200);
 			break;
 	}
 }
@@ -242,6 +263,7 @@ DiscordClient.on('message', function(message) {
 					var _c = message.guild.voiceConnection;
 					var guildID = message.guild.id;
 
+					queue[guildID]["list"] = [];
 					addToQueue(guildID, 10);
 					
 					if(_c) {
