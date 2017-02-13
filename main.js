@@ -119,6 +119,8 @@ function playTrack(channel, guildID, list, index) {
 		channel = most_recent_text_channel[guildID];
 	}
 
+	queue[guildID]["skippers"] = [];
+
 	if(!list) {
 		channel.sendMessage("list was empty, this shouldn't happen?");
 		return;
@@ -436,6 +438,34 @@ DiscordClient.on('message', function(message) {
 				});
 			}
 
+			else if(params[1] == "skip" || params[1] == "next" || params[1] == ":track_next:") {
+				var guildID = message.guild.id;
+				
+				if(!("skippers" in queue[guildID])) {
+					queue[guildID]["skippers"] = [];
+				}
+
+				if(message.author.id in queue[guildID]["skippers"]) {
+					return;
+				}
+
+				queue[guildID]["skippers"].push(message.author.id);
+
+				if(queue[guildID]["skippers"].length / room.members.size >= 0.5) {
+					var connection = message.guild.voiceConnection
+					if(connection) {
+						if(connection.player) {
+							connection.player.dispatcher.end("skipped");
+							message.channel.sendMessage(":track_next: **Skipped track.**");
+						}
+					}				
+				} else {
+					console.log(room.members.size);
+					var remain = Math.ceil(room.members.size / 2) - queue[guildID]["skippers"].length;
+					message.reply("Your skip has been acknowledged, " + remain.toString() + " more must skip.");
+				}
+			}
+
 			else if(params[1] == "help") {
 				var lines = [
 					"***THIS IS STILL A WORK IN PROGRESS!***",
@@ -448,7 +478,8 @@ DiscordClient.on('message', function(message) {
 					"`channel [voice channel]`: *(KICK_MEMBERS permission needed!)* Switches the voice channel to connect to.",
 					"`vol`/`volume [0-100%]`: Changes the volume.",
 					"`source`: DM's the source for the currently playing song.",
-					"`list_format`: DM's an example list to show what playlists should look like."
+					"`list_format`: DM's an example list to show what playlists should look like.",
+					"`skip`: Votes to skip a song. 50% majority of the voice channel is needed."
 				];
 
 				message.author.sendMessage(lines.join("\n"));
