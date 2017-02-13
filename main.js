@@ -322,7 +322,17 @@ DiscordClient.on('message', function(message) {
 					for(var i in settings.lists) {
 						getListData(i, function(list) {
 							var id = settings.lists.findIndex(item => item.path === list.url)
-							lines.splice(id, 0, (id+1).toString() + ". " + list["name"]);
+							var str = (id+1).toString() + ". " + list["name"];
+
+							try {
+								if(id == queue[message.guild.id]["cur_list"]) {
+									str = ":white_check_mark: " + str;
+								}
+							} catch(err) {
+								// ignore
+							}
+
+							lines.splice(id, 0, str);
 
 							if(lines.length == settings.lists.length) {
 								message.reply("\n" + lines.join("\n"));
