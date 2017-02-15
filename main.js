@@ -220,6 +220,28 @@ function parseSVData(data, separator) {
 	return output;
 }
 
+function getLastModTime(library, format) {
+	var highest = 0;
+	for(var i in library) {
+		var entry = library[i];
+
+		if(entry["timestamp"] > highest) {
+			highest = entry["timestamp"];
+		}
+	}
+
+	if(format) {
+		if(highest <= 0) {
+			return "Unknown";
+		}
+		
+		var d = new Date(highest*1000);
+		return d.toString();
+	} else {
+		return highest;
+	}
+}
+
 /*
 	tab seperated values
 	comma "
@@ -265,6 +287,10 @@ function getListData(index, callback) {
 			}
 
 			data["url"] = source.path;
+			data["last_mod"] = {
+				"int": getLastModTime(data["library"]),
+				"str": getLastModTime(data["library"], true)
+			};
 
 			lists[source.path] = data;
 			callback(data);
@@ -287,6 +313,10 @@ function getListData(index, callback) {
 						}
 
 						data["url"] = source.path;
+						data["last_mod"] = {
+							"int": getLastModTime(data["library"]),
+							"str": getLastModTime(data["library"], true)
+						};
 
 						lists[source.path] = data;
 						callback(data);
@@ -455,24 +485,44 @@ DiscordClient.on('message', function(message) {
 
 			else if(params[1] == "list") {
 				if(params.length < 3) {
-					var lines = [];
+					var rows = [];
 					for(var i in settings.lists) {
 						getListData(i, function(list) {
-							var id = settings.lists.findIndex(item => item.path === list.url)
-							var str = (id+1).toString() + ". " + list["name"];
+							var row = [];
+							var id = settings.lists.findIndex(item => item.path === list.url);
+
+							row.push(":headphones: " + list["name"] + " :headphones: **(ID: " + (id+1).toString() + ")**");
 
 							try {
 								if(id == queue[message.guild.id]["cur_list"]) {
-									str = ":white_check_mark: " + str;
+									row.push(":warning: **PLAYLIST CURRENTLY ACTIVE** :warning:");
 								}
 							} catch(err) {
 								// ignore
 							}
 
-							lines.splice(id, 0, str);
+							row.push(":busts_in_silhouette: **Managed By:** " + list["manager"]);
+							row.push(":clock2: **Last Updated**: " + list["last_mod"]["str"]);
+							row.push(":straight_ruler: **Length:** " + list["library"].length.toString() + " songs");
 
-							if(lines.length == settings.lists.length) {
-								message.reply("\n" + lines.join("\n"));
+							rows.push(row);
+
+							//lines.splice(id, 0, str);
+
+							if(rows.length == settings.lists.length) {
+								var out = [];
+
+								for(var j in rows) {
+									var lines = rows[j];
+
+									for(var k in lines) {
+										out.push(lines[k]);
+									}
+
+									out.push("");
+								}
+
+								message.channel.sendMessage(out.join("\n"));
 							}
 						});
 					}
