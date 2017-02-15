@@ -5,13 +5,21 @@
 
 	"enable": {
 		"caching": true,
-		"manual_queue": true
+		"manual_queue": true,
+		"now_playing_notifs": true
 	},
 
 	"lists": [
 		{
 			"type": "remote",
-			"path": "https://raw.githubusercontent.com/TheBlackParrot/discord-music-bot-lists/master/vaporwave.json"
-		}
+			"path": "https://raw.githubusercontent.com/TheBlackParrot/discord-music-bot-lists/master/vaporwave.json",
+			"format": "json"
+		},
+
+		{
+			"type": "remote",
+			"path": "https://raw.githubusercontent.com/TheBlackParrot/discord-music-bot-lists/master/dnb.tsv",
+			"format": "tsv"
+		},
 	]
 }

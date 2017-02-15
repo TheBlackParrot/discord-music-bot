@@ -3,6 +3,7 @@ const DiscordClient = new Discord.Client();
 
 const fs = require('fs');
 const crypto = require('crypto');
+const readline = require('readline');
 
 const settings = require('./settings.json');
 
@@ -154,7 +155,7 @@ function playTrack(channel, guildID, list, index) {
 
 		streams_w[guildID] = fs.createWriteStream('/tmp/discord-mus-' + guildID);
 
-		var video = youtubedl(now_playing.url, ["--format=bestaudio"], {maxBuffer: 1000*512});
+		var video = youtubedl(now_playing.url, ["--format=ogg/mp3/aac/bestaudio"], {maxBuffer: 1000*512});
 		video.pipe(streams_w[guildID]);
 
 		video.on('end', function() {
@@ -176,6 +177,73 @@ function playTrack(channel, guildID, list, index) {
 	}
 }
 
+function parseSVData(data, separator) {
+	var lines = data.split("\n").map(function(x) {
+		return x.trim();
+	});
+
+	var output = {
+		"library": []
+	};
+
+	for(var i in lines) {
+		var line = lines[i];
+
+		var params = line.split(separator).map(function(x) {
+			return x.trim();
+		});
+
+		if(params.length < 4 || line.charAt(0) == "#") {
+			continue;
+		}
+
+		var obj = {
+			"url": params[0],
+			"artist": params[1],
+			"title": params[2],
+			"timestamp": params[3]
+		};
+
+		output["library"].push(obj);
+	}
+
+	// the last line denotes list info
+	if(line.charAt(0) == "#") {
+		output["name"] = params[0].substr(1),
+		output["manager"] = params[1],
+		output["fmt_version"] = params[2]
+	} else {
+		console.log("couldn't find info line");
+		return null;
+	}
+
+	return output;
+}
+
+/*
+	tab seperated values
+	comma "
+	colon "
+	pipe "
+	caret "
+	percent "
+	dollar "
+	at-sign "
+	non-breaking space "
+*/
+
+var valid_separator_chars = {
+	"tsv": "\t",
+	"csv": ",",
+	"clsv": ":",
+	"psv": "|",
+	"crsv": "^",
+	"prsv": "%",
+	"dsv": "$",
+	"asv": "@",
+	"nbspsv": " "
+};
+
 function getListData(index, callback) {
 	var source = settings.lists[index];
 	console.log(source);
@@ -188,7 +256,14 @@ function getListData(index, callback) {
 
 	switch(source["type"]) {
 		case "local":
-			var data = JSON.parse(fs.readFileSync(source.path, 'utf8'));
+			var raw = fs.readFileSync(source.path, 'utf8');
+
+			if(source["format"] == "json") {
+				var data = JSON.parse(raw);
+			} else if(source["format"] in valid_separator_chars) {
+				var data = parseSVData(raw, valid_separator_chars[source["format"]]);
+			}
+
 			data["url"] = source.path;
 
 			lists[source.path] = data;
@@ -203,7 +278,14 @@ function getListData(index, callback) {
 						var err = new Error('Server responded with status code ' + this.statusCode + ':\n' + this.body.toString());
 						throw err;
 					} else {
-						var data = JSON.parse(res.body.toString());
+						var raw = res.body.toString();
+
+						if(source["format"] == "json") {
+							var data = JSON.parse(raw);
+						} else if(source["format"] in valid_separator_chars) {
+							var data = parseSVData(raw, valid_separator_chars[source["format"]]);
+						}
+
 						data["url"] = source.path;
 
 						lists[source.path] = data;
@@ -405,11 +487,13 @@ DiscordClient.on('message', function(message) {
 				if(params.length == 4) {
 					if(params[3] == "refresh") {
 						var source = settings.lists[index];
-						lists[source.path] = null;
+						delete lists[source.path];
 
 						getListData(index, function(list) {
 							message.reply("Refreshed " + list.name);
 						});
+
+						return;
 					}
 				}
 
