@@ -579,6 +579,9 @@ DiscordClient.on('message', function(message) {
 			else if(params[1] == "help") {
 				var lines = [
 					"***THIS IS STILL A WORK IN PROGRESS!***",
+					"*Source code:* https://github.com/TheBlackParrot/discord-music-bot",
+					"*Sample lists:* https://github.com/TheBlackParrot/discord-music-bot-lists",
+					"",
 					"**Commands**:",
 					"`list [number]`: Shows the available playlists if blank, switches to the specified playlist if not.",
 					"`play`: Starts playing from the playlist.",
