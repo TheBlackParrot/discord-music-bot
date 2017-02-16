@@ -821,6 +821,7 @@ DiscordClient.on('message', function(message) {
 					"**Commands**:",
 					"`list [number]`: Shows the available playlists if blank, switches to the specified playlist if not.",
 					"`list [number] refresh`: *(KICK_MEMBERS permission needed!)* Refreshes the cached data for this list.",
+					"`list [number] detail`: Shows more details about a list.",
 					"`play`: Starts playing from the playlist.",
 					"`queue`: Shows what will play next.",
 					"`pause`/`toggle`: Pauses/resumes playback",
@@ -838,14 +839,23 @@ DiscordClient.on('message', function(message) {
 			}
 
 			else if(params[1] == "list_format") {
+				var author = message.author;
+
 				fs.readFile(__dirname + "/example.txt", function(err, data) {
 					if(!err) {
-						message.author.sendMessage(data.toString("utf8"))
+						author.sendMessage(data.toString("utf8"))
 							.catch(console.error);
 					}
-
-					message.delete();
 				});
+
+				fs.readFile(__dirname + "/example_alt.txt", function(err, data) {
+					if(!err) {
+						author.sendMessage(data.toString("utf8"))
+							.catch(console.error);
+					}
+				});
+
+				message.delete();
 			}
 		}
 	}
