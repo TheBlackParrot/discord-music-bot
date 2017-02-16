@@ -10,6 +10,12 @@
 		"now_playing_notifs": true
 	},
 
+	"defaults": {
+		"volume": 33,
+		"dispatcher_passes": 1,
+		"track_delay": 0
+	},
+
 	"lists": [
 		{
 			"type": "remote",

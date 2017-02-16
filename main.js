@@ -8,7 +8,7 @@ const readline = require('readline');
 const settings = require('./settings.json');
 
 var youtubedl = require('youtube-dl');
-const streamOptions = { seek: 0, volume: 1 };
+const streamOptions = { seek: 0, volume: settings.defaults.volume/100 };
 
 const mkdirp = require('mkdirp');
 
@@ -99,7 +99,7 @@ function startStreaming(rstream, channel) {
 			}
 
 			const dispatcher = connection.playStream(rstream, {seek: 0, volume: vol});
-			dispatcher.passes = 2;
+			dispatcher.passes = settings.defaults.dispatcher_passes;
 
 			dispatcher.on('end', function(reason) {
 				console.log("PLAYBACK FINISHED.");
@@ -113,7 +113,9 @@ function startStreaming(rstream, channel) {
 					queue[guildID]["list"].splice(0, 1);
 					addToQueue(guildID, 1);
 					getListData(queue[guildID]["cur_list"], function(source) {
-						playTrack(null, guildID, source, queue[guildID]["list"][0]);
+						setTimeout(function() {
+							playTrack(null, guildID, source, queue[guildID]["list"][0]);
+						}, settings.defaults.track_delay*1000);
 					});
 				}
 			});
