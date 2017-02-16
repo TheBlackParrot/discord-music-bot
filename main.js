@@ -484,6 +484,33 @@ function getDeafenedCount(voice_channel) {
 	/* can we go back to ES5 im tired of all this milennial crap */
 }
 
+function getListDetailRow(index, small, callback) {
+	getListData(index, function(list) {
+		var row = [];
+
+		row.push(":headphones: " + list["name"] + " :headphones: **(ID: " + (parseInt(index)+1).toString() + ")**");
+		if(list["format"] == "discordfm") {
+			row.push(":radio: *This is a Discord.FM library*");
+		}
+
+		try {
+			if(index == queue[message.guild.id]["cur_list"]) {
+				row.push(":warning: **PLAYLIST CURRENTLY ACTIVE** :warning:");
+			}
+		} catch(err) {
+			// ignore
+		}
+
+		if(!small) {
+			row.push(":busts_in_silhouette: **Managed By:** " + list["manager"]);
+			row.push(":clock2: **Last Updated**: " + list["last_mod"]["str"]);
+			row.push(":straight_ruler: **Length:** " + list["library"].length.toString() + " songs");
+		}
+
+		callback(row);
+	});
+}
+
 DiscordClient.on('message', function(message) {
 	if(message.channel.type == "dm") {
 		return;
@@ -622,51 +649,40 @@ DiscordClient.on('message', function(message) {
 			else if(params[1] == "list") {
 				if(params.length < 3) {
 					var rows = [];
-					for(var i in settings.lists) {
-						getListData(i, function(list) {
-							var row = [];
-							var id = settings.lists.findIndex(item => item.path === list.url);
+					
+					var small = false;
+					if(settings.lists.length <= 8) {
+						small = true;
+					}
 
-							row.push(":headphones: " + list["name"] + " :headphones: **(ID: " + (id+1).toString() + ")**");
-							if(list["format"] == "discordfm") {
-								row.push(":radio: *This is a Discord.FM library*");
-							}
+					message.channel.sendMessage("Fetching lists...")
+						.then(progress_msg => {
+							message.channel.startTyping();
 
-							try {
-								if(id == queue[message.guild.id]["cur_list"]) {
-									row.push(":warning: **PLAYLIST CURRENTLY ACTIVE** :warning:");
-								}
-							} catch(err) {
-								// ignore
-							}
+							for(var i in settings.lists) {
+								getListDetailRow(i, small, function(row) {
+									rows.push(row);
 
-							if(settings.lists.length <= 8) {
-								row.push(":busts_in_silhouette: **Managed By:** " + list["manager"]);
-								row.push(":clock2: **Last Updated**: " + list["last_mod"]["str"]);
-								row.push(":straight_ruler: **Length:** " + list["library"].length.toString() + " songs");
-							}
+									if(rows.length == settings.lists.length) {
+										var out = [];
 
-							rows.push(row);
+										for(var j in rows) {
+											var lines = rows[j];
 
-							//lines.splice(id, 0, str);
+											for(var k in lines) {
+												out.push(lines[k]);
+											}
 
-							if(rows.length == settings.lists.length) {
-								var out = [];
+											out.push("");
+										}
 
-								for(var j in rows) {
-									var lines = rows[j];
-
-									for(var k in lines) {
-										out.push(lines[k]);
+										message.channel.sendMessage(out.join("\n"));
+										progress_msg.delete();
+										message.channel.stopTyping();
 									}
-
-									out.push("");
-								}
-
-								message.channel.sendMessage(out.join("\n"));
+								});
 							}
 						});
-					}
 					return;
 				}
 
@@ -696,6 +712,14 @@ DiscordClient.on('message', function(message) {
 								message.reply("Refreshed " + list.name);
 							});
 						}
+
+						return;
+					}
+
+					if(params[3] == "detail") {
+						getListDetailRow(index, false, function(row) {
+							message.channel.sendMessage(row.join("\n"));
+						});
 
 						return;
 					}
