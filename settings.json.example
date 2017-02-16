@@ -1,6 +1,7 @@
 {
 	"discord": {
-		"token": "[BOT USER TOKEN]"
+		"token": "[BOT USER TOKEN]",
+		"owner_id": "[USER ACCOUNT ID e.g. "101812335823298560"]"
 	},
 
 	"enable": {

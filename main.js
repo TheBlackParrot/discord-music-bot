@@ -413,6 +413,15 @@ function addToQueue(guildID, amount) {
 	});
 }
 
+function skipTrack(connection) {
+	if(connection) {
+		if(connection.player) {
+			connection.player.dispatcher.end("skipped");
+			most_recent_text_channel[connection.channel.guild.id].sendMessage(":track_next: **Skipped track.**");
+		}
+	}
+}
+
 DiscordClient.on('message', function(message) {
 	if(message.channel.type == "dm") {
 		return;
@@ -596,11 +605,24 @@ DiscordClient.on('message', function(message) {
 				if(params.length == 4) {
 					if(params[3] == "refresh") {
 						var source = settings.lists[index];
-						delete lists[source.path];
 
-						getListData(index, function(list) {
-							message.reply("Refreshed " + list.name);
+						if(!(source.path in lists)) {
+							return;
+						}
+
+						var _ = lists[source.path]["manager"].split(",").map(function(x) {
+							return x.trim();
 						});
+
+						if(message.author.id != settings.discord.owner_id ||
+							_.indexOf(message.author.username + "#" + message.author.discriminator) > -1) {
+
+							delete lists[source.path];
+
+							getListData(index, function(list) {
+								message.reply("Refreshed " + list.name);
+							});
+						}
 
 						return;
 					}
@@ -662,13 +684,22 @@ DiscordClient.on('message', function(message) {
 			}
 
 			else if(params[1] == "skip" || params[1] == "next" || params[1] == ":track_next:") {
+				if(params.length > 2) {
+					if(params[2] == "force") {
+						if(whom.hasPermission("KICK_MEMBERS")) {
+							skipTrack(message.guild.voiceConnection);
+							return;
+						}
+					}
+				}
+
 				var guildID = message.guild.id;
 
 				if(!("skippers" in queue[guildID])) {
 					queue[guildID]["skippers"] = [];
 				}
 
-				if(message.author.id in queue[guildID]["skippers"]) {
+				if(queue[guildID]["skippers"].indexOf(message.author.id) > -1) {
 					return;
 				}
 
@@ -676,13 +707,7 @@ DiscordClient.on('message', function(message) {
 				console.log(queue[guildID]["skippers"]);
 
 				if(queue[guildID]["skippers"].length / room.members.size >= 0.5) {
-					var connection = message.guild.voiceConnection
-					if(connection) {
-						if(connection.player) {
-							connection.player.dispatcher.end("skipped");
-							message.channel.sendMessage(":track_next: **Skipped track.**");
-						}
-					}				
+					skipTrack(message.guild.voiceConnection);
 				} else {
 					console.log(room.members.size);
 					var remain = Math.ceil(room.members.size / 2) - queue[guildID]["skippers"].length;
