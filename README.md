@@ -6,6 +6,7 @@ Dependencies
 * Node.js  
 * opus  
 * youtube-dl  
+* ffmpeg *(for ffprobe)*
 
 Packages
 ========
@@ -13,3 +14,5 @@ Packages
 * node-youtube-dl  
 * mkdirp  
 * then-request  
+* node-ffprobe  
+* format-duration

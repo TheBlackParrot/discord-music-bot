@@ -14,6 +14,10 @@ const mkdirp = require('mkdirp');
 
 const request = require('then-request');
 
+const ffprobe = require('node-ffprobe');
+
+const formatDuration = require('format-duration');
+
 DiscordClient.on('ready', function() {
 	console.log("Ready.");
 	//console.log(DiscordClient.channels);
@@ -66,7 +70,7 @@ function cacheTrack(list, index, callback) {
 	video.pipe(stream);
 
 	video.on('end', function() {
-		callback(fs.createReadStream(path));
+		callback(fs.createReadStream(path), path);
 	});
 }
 
@@ -149,7 +153,10 @@ function playTrack(channel, guildID, list, index) {
 		if("artist" in now_playing) {
 			str = str + " by *" + now_playing.artist + "*";
 		}
-		channel.sendMessage(str);
+		// -_-
+		var notif;
+		channel.sendMessage(str)
+			.then(mess => notif = mess);
 	}
 
 	if(!settings.enable.caching) {
@@ -172,11 +179,32 @@ function playTrack(channel, guildID, list, index) {
 		console.log("PATH: " + path);
 
 		if(path) {
+			if(notif) {
+				ffprobe(path, function(err, probeData) {
+					if(err) {
+						return;
+					}
+
+					notif.edit(str + " `[" + formatDuration(probeData.streams[0].duration*1000) + "]`");
+				});
+			}
+
 			startStreaming(fs.createReadStream(path), channel);
 		} else {
 			console.log("CACHING...");
-			cacheTrack(list, index, function(stream) {
+			cacheTrack(list, index, function(stream, new_path) {
 				console.log("DONE.");
+
+				if(notif) {
+					ffprobe(new_path, function(err, probeData) {
+						if(err) {
+							return;
+						}
+
+						notif.edit(str + " `[" + formatDuration(probeData.format.duration*1000) + "]`");
+					});
+				}
+
 				startStreaming(stream, channel);
 			});
 		}
@@ -725,15 +753,17 @@ DiscordClient.on('message', function(message) {
 					"",
 					"**Commands**:",
 					"`list [number]`: Shows the available playlists if blank, switches to the specified playlist if not.",
+					"`list [number] refresh`: *(KICK_MEMBERS permission needed!)* Refreshes the cached data for this list.",
 					"`play`: Starts playing from the playlist.",
 					"`queue`: Shows what will play next.",
 					"`pause`/`toggle`: Pauses/resumes playback",
 					"`stop`: Stops playback.",
 					"`channel [voice channel]`: *(KICK_MEMBERS permission needed!)* Switches the voice channel to connect to.",
-					"`vol`/`volume [0-100%]`: Changes the volume.",
+					"`vol`/`volume [0-100]`: Changes the volume.",
 					"`source`: DM's the source for the currently playing song.",
 					"`list_format`: DM's an example list to show what playlists should look like.",
-					"`skip`: Votes to skip a song. 50% majority of the voice channel is needed."
+					"`skip`: Votes to skip a song. 50% majority of the voice channel is needed.",
+					"`skip force`: *(KICK_MEMBERS permission needed!)* Forcibly skips a song, disregarding votes."
 				];
 
 				message.author.sendMessage(lines.join("\n"));
