@@ -469,6 +469,21 @@ function skipTrack(connection) {
 	}
 }
 
+function getDeafenedCount(voice_channel) {
+	var deaf = 0;
+	/* why not just... an array of objects... */
+	/* nooo... gotta re-invent the wheel... */
+	for(var member of voice_channel.members.values()) {
+		if(member.selfDeaf || member.serverDeaf) {
+			deaf++;
+		}
+	}
+
+	return deaf;
+
+	/* can we go back to ES5 im tired of all this milennial crap */
+}
+
 DiscordClient.on('message', function(message) {
 	if(message.channel.type == "dm") {
 		return;
@@ -539,6 +554,15 @@ DiscordClient.on('message', function(message) {
 					if(connection.player) {
 						var dispatcher = connection.player.dispatcher;
 						if(dispatcher.paused) {
+							if(getDeafenedCount(connection.channel) == connection.channel.members.size-1) {
+								message.reply(":raised_hand: Everyone is deafened, not resuming.");
+								return;
+							}
+							if(connection.channel.members.size == 1) {
+								message.reply(":raised_hand: No one is in " + connection.channel.name + ", not resuming.");
+								return;
+							}
+
 							connection.player.dispatcher.resume();
 							message.reply(":point_right: **Resumed playback.**");
 						} else {
@@ -800,6 +824,38 @@ DiscordClient.on('message', function(message) {
 				});
 			}
 		}
+	}
+});
+
+DiscordClient.on('voiceStateUpdate', function(oldMember, newMember) {
+	console.log("voiceStateUpdate");
+
+	var connection = newMember.guild.voiceConnection;
+	if(!connection) {
+		return;
+	}
+	if(!connection.player) {
+		return;
+	}
+
+	var channel = connection.channel;
+	var dispatcher = connection.player.dispatcher;
+	var text_channel = most_recent_text_channel[channel.guild.id];
+
+	if(channel.members.size <= 1) {
+		if(!dispatcher.paused) {
+			dispatcher.pause();
+			text_channel.sendMessage(":raised_hand: Paused due to lack of listeners. Use `toggle` or `pause` to resume.");
+		}
+	}
+
+	var deaf = getDeafenedCount(channel);
+
+	if(deaf >= channel.members.size-1) {
+		if(!dispatcher.paused) {
+			dispatcher.pause();
+			text_channel.sendMessage(":raised_hand: Paused due to lack of listeners. Use `toggle` or `pause` to resume.");
+		}		
 	}
 });
 
