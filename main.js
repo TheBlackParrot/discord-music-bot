@@ -616,9 +616,11 @@ DiscordClient.on('message', function(message) {
 								// ignore
 							}
 
-							row.push(":busts_in_silhouette: **Managed By:** " + list["manager"]);
-							row.push(":clock2: **Last Updated**: " + list["last_mod"]["str"]);
-							row.push(":straight_ruler: **Length:** " + list["library"].length.toString() + " songs");
+							if(settings.lists.length <= 8) {
+								row.push(":busts_in_silhouette: **Managed By:** " + list["manager"]);
+								row.push(":clock2: **Last Updated**: " + list["last_mod"]["str"]);
+								row.push(":straight_ruler: **Length:** " + list["library"].length.toString() + " songs");
+							}
 
 							rows.push(row);
 
