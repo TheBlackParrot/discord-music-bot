@@ -143,7 +143,11 @@ function playTrack(channel, guildID, list, index) {
 	console.log("Playing " + now_playing.title + " in \"" + channel.guild.name + "\" (ID " + guildID + ")");
 
 	if(settings.enable.now_playing_notifs) {
-		channel.sendMessage(":musical_note: **" + now_playing.title + "** by *" + now_playing.artist + "*");
+		var str = ":musical_note: **" + now_playing.title + "**";
+		if("artist" in now_playing) {
+			str = str + " by *" + now_playing.artist + "*";
+		}
+		channel.sendMessage(str);
 	}
 
 	if(!settings.enable.caching) {
@@ -220,6 +224,60 @@ function parseSVData(data, separator) {
 	return output;
 }
 
+function parseDiscordFMData(data) {
+	var parsed = {
+		"fmt_version": 1,
+		"library": []
+	};
+
+	for(var i in data) {
+		var row = data[i];
+		var x = {};
+
+		if("url" in row) {
+			x["url"] = row["url"];
+			x["title"] = row["title"];
+		} else {
+			if(row["service"] == "YouTubeVideo") {
+				x["url"] = "https://www.youtube.com/watch?v=" + row["identifier"];
+			}
+		}
+
+		// no sort of timestamp is ever provided
+		x["timestamp"] = 0;
+
+		if("title" in x && "url" in x) {
+			parsed.library.push(x);
+		}
+	}
+
+	return parsed;
+
+	/*
+		i'm guessing even though they have to verify requests, they just throw links at a script
+		and let it parse everything. titles aren't consistent, object formatting changed at some point...
+		just ugh. maybe this is why they're working on an API.
+
+		this is why there's a check to see if "artist" even exists on this side of things, it doesn't
+		exist in discord.fm's library format.
+	*/
+}
+
+function injectCustomData(data, source) {
+	for(var i in source.inject) {
+		data[i] = source.inject[i];
+	}
+
+	data["url"] = source.path;
+	data["last_mod"] = {
+		"int": getLastModTime(data["library"]),
+		"str": getLastModTime(data["library"], true)
+	};
+	data["format"] = source.format;
+
+	return data;
+}
+
 function getLastModTime(library, format) {
 	var highest = 0;
 	for(var i in library) {
@@ -284,13 +342,11 @@ function getListData(index, callback) {
 				var data = JSON.parse(raw);
 			} else if(source["format"] in valid_separator_chars) {
 				var data = parseSVData(raw, valid_separator_chars[source["format"]]);
+			} else if(source["format"] == "discordfm") {
+				var data = parseDiscordFMData(JSON.parse(raw));
 			}
 
-			data["url"] = source.path;
-			data["last_mod"] = {
-				"int": getLastModTime(data["library"]),
-				"str": getLastModTime(data["library"], true)
-			};
+			data = injectCustomData(data, source);
 
 			lists[source.path] = data;
 			callback(data);
@@ -310,13 +366,11 @@ function getListData(index, callback) {
 							var data = JSON.parse(raw);
 						} else if(source["format"] in valid_separator_chars) {
 							var data = parseSVData(raw, valid_separator_chars[source["format"]]);
+						} else if(source["format"] == "discordfm") {
+							var data = parseDiscordFMData(JSON.parse(raw));
 						}
 
-						data["url"] = source.path;
-						data["last_mod"] = {
-							"int": getLastModTime(data["library"]),
-							"str": getLastModTime(data["library"], true)
-						};
+						data = injectCustomData(data, source);
 
 						lists[source.path] = data;
 						callback(data);
@@ -494,6 +548,9 @@ DiscordClient.on('message', function(message) {
 							var id = settings.lists.findIndex(item => item.path === list.url);
 
 							row.push(":headphones: " + list["name"] + " :headphones: **(ID: " + (id+1).toString() + ")**");
+							if(list["format"] == "discordfm") {
+								row.push(":radio: *This is a Discord.FM library*");
+							}
 
 							try {
 								if(id == queue[message.guild.id]["cur_list"]) {
@@ -581,7 +638,12 @@ DiscordClient.on('message', function(message) {
 
 							var song = queue[message.guild.id]["list"][i];
 							console.log("GETTING INFO FOR " + song + " IN " + list.name);
-							lines.push(i.toString() + ". **" + list.library[song]["title"] + "** by *" + list.library[song]["artist"] + "*");
+
+							var str = i.toString() + ". **" + list.library[song]["title"] + "**";
+							if("artist" in list.library[song]) {
+								str = str + " by *" + list.library[song]["artist"] + "*";
+							}
+							lines.push(str);
 						}
 
 						message.reply("\n" + lines.join("\n"));	
