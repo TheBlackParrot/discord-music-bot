@@ -21,5 +21,15 @@
 			"path": "https://raw.githubusercontent.com/TheBlackParrot/discord-music-bot-lists/master/dnb.tsv",
 			"format": "tsv"
 		},
+
+		{
+			"type": "remote",
+			"path": "https://temp.discord.fm/libraries/purely-pop/json",
+			"format": "discordfm",
+			"inject": {
+				"name": "Purely Pop",
+				"manager": "TwoDog#9122"
+			}
+		}
 	]
 }
