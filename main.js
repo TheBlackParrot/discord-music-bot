@@ -369,11 +369,13 @@ DiscordClient.on('message', function(message) {
 	}
 
 	var room = message.guild.channels.find("name", getVoiceChannelName(guildID));
-	var whom = room.members.get(message.author.id);
+	var whom = message.guild.members.get(message.author.id);
 
 	if(whom) {
 		if(!(whom.voiceChannel.equals(room))) {
-			return;
+			if(!(whom.hasPermission("KICK_MEMBERS"))) {
+				return;
+			}
 		}
 	} else {
 		return;
