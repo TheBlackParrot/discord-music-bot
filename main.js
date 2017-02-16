@@ -127,6 +127,45 @@ function startStreaming(rstream, channel) {
 		.catch(console.error);
 }
 
+function addDurationToNPStatus(notif, str, path) {
+	if(notif) {
+		ffprobe(path, function(err, probeData) {
+			if(err) {
+				console.log(err);
+				return;
+			}
+
+			if("duration" in probeData.streams[0]) {
+				if(typeof probeData.streams[0].duration === "number") {
+					var duration = probeData.streams[0].duration*1000;
+				}
+			}
+			if(!duration) {
+				if("duration" in probeData.format) {
+					var duration = probeData.format.duration*1000;
+				}
+			}
+
+			console.log(probeData);
+
+			notif.edit(str + " `[" + formatDuration(duration) + "]`");
+		});
+	}
+}
+
+function sendNowPlayingNotif(channel, now_playing, path) {
+	var str = ":musical_note: **" + now_playing.title + "**";
+
+	if("artist" in now_playing) {
+		str = str + " by *" + now_playing.artist + "*";
+	}
+
+	channel.sendMessage(str)
+		.then(message => {
+			addDurationToNPStatus(message, str, path);
+		});
+}
+
 function playTrack(channel, guildID, list, index) {
 	if(!channel) {
 		channel = most_recent_text_channel[guildID];
@@ -148,17 +187,6 @@ function playTrack(channel, guildID, list, index) {
 
 	console.log("Playing " + now_playing.title + " in \"" + channel.guild.name + "\" (ID " + guildID + ")");
 
-	if(settings.enable.now_playing_notifs) {
-		var str = ":musical_note: **" + now_playing.title + "**";
-		if("artist" in now_playing) {
-			str = str + " by *" + now_playing.artist + "*";
-		}
-		// -_-
-		var notif;
-		channel.sendMessage(str)
-			.then(mess => notif = mess);
-	}
-
 	if(!settings.enable.caching) {
 		if(guildID in streams_w) {
 			if(streams_w[guildID]) {
@@ -172,6 +200,9 @@ function playTrack(channel, guildID, list, index) {
 		video.pipe(streams_w[guildID]);
 
 		video.on('end', function() {
+			if(settings.enable.now_playing_notifs) {
+				sendNowPlayingNotif(channel, now_playing, '/tmp/discord-mus-' + guildID);
+			}
 			startStreaming(fs.createReadStream('/tmp/discord-mus-' + guildID), channel);
 		});
 	} else {
@@ -179,32 +210,18 @@ function playTrack(channel, guildID, list, index) {
 		console.log("PATH: " + path);
 
 		if(path) {
-			if(notif) {
-				ffprobe(path, function(err, probeData) {
-					if(err) {
-						return;
-					}
-
-					notif.edit(str + " `[" + formatDuration(probeData.streams[0].duration*1000) + "]`");
-				});
+			if(settings.enable.now_playing_notifs) {
+				sendNowPlayingNotif(channel, now_playing, path);
 			}
-
 			startStreaming(fs.createReadStream(path), channel);
 		} else {
 			console.log("CACHING...");
 			cacheTrack(list, index, function(stream, new_path) {
 				console.log("DONE.");
 
-				if(notif) {
-					ffprobe(new_path, function(err, probeData) {
-						if(err) {
-							return;
-						}
-
-						notif.edit(str + " `[" + formatDuration(probeData.format.duration*1000) + "]`");
-					});
+				if(settings.enable.now_playing_notifs) {
+					sendNowPlayingNotif(channel, now_playing, new_path);
 				}
-
 				startStreaming(stream, channel);
 			});
 		}
