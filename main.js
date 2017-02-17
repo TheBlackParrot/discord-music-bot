@@ -651,7 +651,7 @@ DiscordClient.on('message', function(message) {
 					var rows = [];
 					
 					var small = false;
-					if(settings.lists.length <= 8) {
+					if(settings.lists.length >= 8) {
 						small = true;
 					}
 
