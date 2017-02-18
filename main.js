@@ -48,6 +48,15 @@ function getURLHash(url) {
 function isCached(list, index) {
 	var song = list.library[index];
 
+	if(song.url.substr(0, 7) == "file://") {
+		var path = song.url.substr(7);
+		if(fs.existsSync(path)) {
+			return path;
+		}
+
+		return null;
+	}
+
 	var dir = __dirname + "/music_cache";
 	var path = dir + "/" + getURLHash(song.url);
 
@@ -62,6 +71,12 @@ function isCached(list, index) {
 
 function cacheTrack(list, index, callback) {
 	var song = list.library[index];
+	if(song.url.substr(0, 7) == "file://") {
+		var path = song.url.substr(0, 7);
+		callback(fs.createReadStream(path), path);
+		return;
+	}
+
 	var path = __dirname + "/music_cache/" + getURLHash(song.url);
 
 	var stream = fs.createWriteStream(path);
@@ -188,6 +203,14 @@ function playTrack(channel, guildID, list, index) {
 	console.log("Playing " + now_playing.title + " in \"" + channel.guild.name + "\" (ID " + guildID + ")");
 
 	if(!settings.enable.caching) {
+		if(now_playing.url.substr(0, 7) == "file://") {
+			if(settings.enable.now_playing_notifs) {
+				sendNowPlayingNotif(channel, now_playing, now_playing.url.substr(7));
+			}
+			startStreaming(fs.createReadStream(now_playing.url.substr(7)), channel);
+			return;
+		}
+
 		if(guildID in streams_w) {
 			if(streams_w[guildID]) {
 				streams_w[guildID].end();	
