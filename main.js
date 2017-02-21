@@ -847,6 +847,54 @@ DiscordClient.on('message', function(message) {
 				}
 			}
 
+			else if(params[1] == "search") {
+				if(params.length < 3) {
+					return;
+				}
+
+				var guildID = message.guild.id;
+				var page = 0;
+				if(!isNaN(parseInt(params[2]))) {
+					page = parseInt(params[2])-1;
+					var terms = params.slice(3);
+				} else {
+					var terms = params.slice(2);
+				}
+				var found = [];
+
+				getListData(queue[guildID]["cur_list"], function(list) {
+					for(var i in list.library) {
+						var song = list.library[i];
+
+						terms.some(function(v) {
+							if(song.title.indexOf(v) > -1) {
+								found.push("`" + song.uid + "` **" + song.title + "** by *" + song.artist + "*");
+							} else {
+								if("artist" in song) {
+									if(song.artist.indexOf(v) > -1) {
+										found.push("`" + song.uid + "` **" + song.title + "** by *" + song.artist + "*");
+									}
+								}
+							}
+						});
+					}
+
+					var len = parseInt(found.length.toString());
+					var show_amount = settings.defaults.search_results;
+					var max = Math.ceil(len/show_amount);
+					page = Math.min(Math.max(page, 0), max-1);
+					var diff = 0;
+
+					if(found.length > show_amount) {
+						found = found.slice(page*show_amount, (page+1)*show_amount);
+						diff = len - found.length;
+						found.push("**and " + diff.toString() + " more results.** *(page " + (page+1).toString() + "/" + max.toString() + ")*");
+					}
+
+					message.channel.sendMessage(found.join("\n"));
+				});
+			}
+
 			else if(params[1] == "help") {
 				var lines = [
 					"***THIS IS STILL A WORK IN PROGRESS!***",

@@ -13,7 +13,8 @@
 	"defaults": {
 		"volume": 33,
 		"dispatcher_passes": 1,
-		"track_delay": 0
+		"track_delay": 0,
+		"search_results": 20
 	},
 
 	"lists": [
