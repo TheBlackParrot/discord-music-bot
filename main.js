@@ -914,7 +914,8 @@ DiscordClient.on('message', function(message) {
 					"`source`: DM's the source for the currently playing song.",
 					"`list_format`: DM's an example list to show what playlists should look like.",
 					"`skip`: Votes to skip a song. 50% majority of the voice channel is needed.",
-					"`skip force`: *(KICK_MEMBERS permission needed!)* Forcibly skips a song, disregarding votes."
+					"`skip force`: *(KICK_MEMBERS permission needed!)* Forcibly skips a song, disregarding votes.",
+					"`search [page#] [terms]`: Search through the active playlist, looking at titles and artists."
 				];
 
 				message.author.sendMessage(lines.join("\n"));
