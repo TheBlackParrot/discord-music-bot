@@ -45,6 +45,10 @@ function getURLHash(url) {
 	return crypto.createHash('sha256').update(url).digest("hex");
 }
 
+function getMD5Hash(data) {
+	return crypto.createHash('md5').update(data).digest("hex");
+}
+
 function isCached(list, index) {
 	var song = list.library[index];
 
@@ -161,8 +165,6 @@ function addDurationToNPStatus(notif, str, path) {
 				}
 			}
 
-			console.log(probeData);
-
 			notif.edit(str + " `[" + formatDuration(duration) + "]`");
 		});
 	}
@@ -201,6 +203,7 @@ function playTrack(channel, guildID, list, index) {
 	}
 
 	console.log("Playing " + now_playing.title + " in \"" + channel.guild.name + "\" (ID " + guildID + ")");
+	console.log(now_playing);
 
 	if(!settings.enable.caching) {
 		if(now_playing.url.substr(0, 7) == "file://") {
@@ -345,7 +348,16 @@ function injectCustomData(data, source) {
 	};
 	data["format"] = source.format;
 
+	generateUIDs(data["library"]);
+
 	return data;
+}
+
+function generateUIDs(library) {
+	for(var i in library) {
+		var song = library[i];
+		song.uid = getMD5Hash(song.artist + song.title).substr(0, 8);
+	}
 }
 
 function getLastModTime(library, format) {
