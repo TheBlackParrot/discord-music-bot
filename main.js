@@ -28,6 +28,7 @@ var vols = {};
 var channel_designations = {};
 var queue = {};
 var lists = {};
+var now_playing = {};
 
 function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -95,7 +96,10 @@ function cacheTrack(list, index, callback) {
 
 function getVoiceChannelName(guildID) {
 	var room = "Music";
+	console.log("GVCN: GID " + guildID);
+	console.log("GVCN: CD " + channel_designations);
 	if(guildID in channel_designations) {
+		console.log("guildID in channel_designations");
 		room = channel_designations[guildID]
 	}
 
@@ -103,6 +107,7 @@ function getVoiceChannelName(guildID) {
 }
 
 function startStreaming(rstream, channel) {
+	//console.log(channel);
 	var _c = channel.guild.voiceConnection
 	if(_c) {
 		if(_c.player) {
@@ -131,13 +136,24 @@ function startStreaming(rstream, channel) {
 					return;
 				}
 
-				if(queue[guildID]["list"].length > 0) {
+				var queue_in_use = queue[guildID]["list"];
+				var adding = true;
+				if(queue[guildID]["user_queue"].length > 0) {
+					console.log("using the user queue...");
+					queue_in_use = queue[guildID]["user_queue"]
+					adding = false;
+				}
+
+				if(queue_in_use.length > 0) {
 					console.log("CONTINUING IN QUEUE...");
-					queue[guildID]["list"].splice(0, 1);
-					addToQueue(guildID, 1);
+					var next = queue_in_use.splice(0, 1)[0];
+					console.log(next);
+					if(adding) {
+						addToQueue(guildID, 1);
+					}
 					getListData(queue[guildID]["cur_list"], function(source) {
 						setTimeout(function() {
-							playTrack(null, guildID, source, queue[guildID]["list"][0]);
+							playTrack(null, guildID, source, next);
 						}, settings.defaults.track_delay*1000);
 					});
 				}
@@ -170,11 +186,17 @@ function addDurationToNPStatus(notif, str, path) {
 	}
 }
 
-function sendNowPlayingNotif(channel, now_playing, path) {
-	var str = ":musical_note: **" + now_playing.title + "**";
+function sendNowPlayingNotif(channel, np, path) {
+	now_playing[channel.guild.id] = np;
 
-	if("artist" in now_playing) {
-		str = str + " by *" + now_playing.artist + "*";
+	if(!settings.enable.now_playing_notifs) {
+		return;
+	}
+
+	var str = ":musical_note: **" + np.title + "**";
+
+	if("artist" in np) {
+		str = str + " by *" + np.artist + "*";
 	}
 
 	channel.sendMessage(str)
@@ -183,7 +205,7 @@ function sendNowPlayingNotif(channel, now_playing, path) {
 		});
 }
 
-function playTrack(channel, guildID, list, index) {
+function playTrack(channel, guildID, list, to_play) {
 	if(!channel) {
 		channel = most_recent_text_channel[guildID];
 	}
@@ -195,22 +217,22 @@ function playTrack(channel, guildID, list, index) {
 		return;
 	}
 
-	var now_playing = list.library[index];
+	console.log("to_play: " + to_play.index);
+	var index = to_play.index;
+	var np = list.library[index];
 
-	if(!now_playing) {
-		channel.sendMessage("now_playing was undefined, this shouldn't happen?");
+	if(!np) {
+		channel.sendMessage("np was undefined, this shouldn't happen?");
 		return;
 	}
 
-	console.log("Playing " + now_playing.title + " in \"" + channel.guild.name + "\" (ID " + guildID + ")");
-	console.log(now_playing);
+	console.log("Playing " + np.title + " in \"" + channel.guild.name + "\" (ID " + guildID + ")");
+	console.log(np);
 
 	if(!settings.enable.caching) {
-		if(now_playing.url.substr(0, 7) == "file://") {
-			if(settings.enable.now_playing_notifs) {
-				sendNowPlayingNotif(channel, now_playing, now_playing.url.substr(7));
-			}
-			startStreaming(fs.createReadStream(now_playing.url.substr(7)), channel);
+		if(np.url.substr(0, 7) == "file://") {
+			sendNowPlayingNotif(channel, np, np.url.substr(7));
+			startStreaming(fs.createReadStream(np.url.substr(7)), channel);
 			return;
 		}
 
@@ -222,13 +244,11 @@ function playTrack(channel, guildID, list, index) {
 
 		streams_w[guildID] = fs.createWriteStream('/tmp/discord-mus-' + guildID);
 
-		var video = youtubedl(now_playing.url, ["--format=ogg/mp3/aac/bestaudio"], {maxBuffer: 1000*512});
+		var video = youtubedl(np.url, ["--format=ogg/mp3/aac/bestaudio"], {maxBuffer: 1000*512});
 		video.pipe(streams_w[guildID]);
 
 		video.on('end', function() {
-			if(settings.enable.now_playing_notifs) {
-				sendNowPlayingNotif(channel, now_playing, '/tmp/discord-mus-' + guildID);
-			}
+			sendNowPlayingNotif(channel, np, '/tmp/discord-mus-' + guildID);
 			startStreaming(fs.createReadStream('/tmp/discord-mus-' + guildID), channel);
 		});
 	} else {
@@ -236,18 +256,14 @@ function playTrack(channel, guildID, list, index) {
 		console.log("PATH: " + path);
 
 		if(path) {
-			if(settings.enable.now_playing_notifs) {
-				sendNowPlayingNotif(channel, now_playing, path);
-			}
+			sendNowPlayingNotif(channel, np, path);
 			startStreaming(fs.createReadStream(path), channel);
 		} else {
 			console.log("CACHING...");
 			cacheTrack(list, index, function(stream, new_path) {
 				console.log("DONE.");
 
-				if(settings.enable.now_playing_notifs) {
-					sendNowPlayingNotif(channel, now_playing, new_path);
-				}
+				sendNowPlayingNotif(channel, np, new_path);
 				startStreaming(stream, channel);
 			});
 		}
@@ -482,12 +498,22 @@ function addToQueue(guildID, amount) {
 		var added = 0;
 		while(added < amount) {
 			var choice = getRandomInt(0, entries.length-1);
-			if(cur_list.indexOf(choice) > -1) {
+			/*if(cur_list.indexOf(choice) > -1) {
+				continue;
+			}*/
+			if(cur_list.filter(function(x) {
+				return x.index == choice;
+			}).length > 0) {
+				console.log("already queued " + choice);
 				continue;
 			}
 
-			console.log("LIST AS OF NOW: " + cur_list);
-			cur_list.push(choice);
+			//this makes [object Object] spam now, kinda irrelevant now anyways too
+			//console.log("LIST AS OF NOW: " + cur_list);
+			cur_list.push({
+				"author": -1,
+				"index": choice
+			});
 			added++;
 		}
 
@@ -546,6 +572,22 @@ function getListDetailRow(index, small, callback) {
 	});
 }
 
+function getQueue(guildID) {
+	var list_index = queue[guildID]["cur_list"];
+
+	if(!("list" in queue[guildID])) {
+		queue[guildID]["list"] = [];
+	}
+	var main_list = queue[guildID]["list"];
+
+	if(!("user_queue" in queue[guildID])) {
+		queue[guildID]["user_queue"] = [];
+	}
+	var user_list = queue[guildID]["user_queue"];
+
+	return user_list.concat(main_list);
+}
+
 DiscordClient.on('message', function(message) {
 	if(message.channel.type == "dm") {
 		return;
@@ -554,18 +596,21 @@ DiscordClient.on('message', function(message) {
 	if(message.author.bot) {
 		return;
 	}
-
-	var room = message.guild.channels.find("name", getVoiceChannelName(guildID));
+	
+	console.log("ROOM NAME: " + getVoiceChannelName(message.guild.id));
+	var room = message.guild.channels.find("name", getVoiceChannelName(message.guild.id));
 	var whom = message.guild.members.get(message.author.id);
 
-	if(whom) {
+	if(whom.voiceChannel) {
 		if(!(whom.voiceChannel.equals(room))) {
 			if(!(whom.hasPermission("KICK_MEMBERS"))) {
 				return;
 			}
 		}
 	} else {
-		return;
+		if(!(whom.hasPermission("KICK_MEMBERS"))) {
+			return;
+		}
 	}
 
 	if(message.isMentioned(DiscordClient.user)) {
@@ -669,6 +714,7 @@ DiscordClient.on('message', function(message) {
 						if(channel) {
 							message.reply(":door: Moved to " + channel.name)
 							channel_designations[message.guild.id] = channel.name;
+							console.log("Moved to " + channel.name + " in " + message.guild.name);
 
 							var connection = message.guild.voiceConnection;
 							if(connection) {
@@ -783,17 +829,18 @@ DiscordClient.on('message', function(message) {
 			else if(params[1] == "queue") {
 				if(params.length < 3) {
 					var lines = [];
+					var overall_queue = getQueue(message.guild.id);
 					getListData(queue[message.guild.id]["cur_list"], function(list) {
 						// purposely starting at 1, 0 is the current track
-						for(var i=1; i<=10; i++) {
-							if(i >= queue[message.guild.id]["list"].length) {
+						for(var i=0; i<10; i++) {
+							if(i >= overall_queue.length) {
 								break;
 							}
 
-							var song = queue[message.guild.id]["list"][i];
+							var song = overall_queue[i].index;
 							console.log("GETTING INFO FOR " + song + " IN " + list.name);
 
-							var str = i.toString() + ". **" + list.library[song]["title"] + "**";
+							var str = (i+1).toString() + ". **" + list.library[song]["title"] + "**";
 							if("artist" in list.library[song]) {
 								str = str + " by *" + list.library[song]["artist"] + "*";
 							}
@@ -802,17 +849,51 @@ DiscordClient.on('message', function(message) {
 
 						message.reply("\n" + lines.join("\n"));	
 					});
-				}				
+
+					return;
+				}
+
+				getListData(queue[message.guild.id]["cur_list"], function(list) {
+					var wanted = list.library.filter(function(song) {
+						return song.uid == params[2];
+					});
+
+					if(!wanted.length) {
+						message.reply("This track does not exist.");
+						return;
+					}
+
+					if(wanted.length > 1) {
+						message.reply("There are songs that also have this UID present. Please alert a developer and mention which list is currently active.\nYes, this is a hash collision.");
+						return;
+					}
+
+					wanted = wanted[0];
+
+					if(!("user_queue" in queue[message.guild.id])) {
+						queue[message.guild.id]["user_queue"] = [];
+					}
+
+					var user_queued_already = queue[message.guild.id]["user_queue"].filter(function(entry) {
+						return entry.author == message.author.id;
+					});
+
+					/* TODO: remove hardcoded limit of 5 */
+					if(user_queued_already.length > 5) {
+						message.reply("You can only have a maximum of 5 in the queue at a time.");
+						return;
+					}
+
+					queue[message.guild.id]["user_queue"].push({
+						"author": message.author.id,
+						"index": list.library.indexOf(wanted)
+					});
+				});
 			}
 
 			else if(params[1] == "source") {
-				getListData(queue[message.guild.id]["cur_list"], function(list) {
-					var song = queue[message.guild.id]["list"][0];
-
-					message.delete();
-
-					message.author.sendMessage(":wave: Source for the currently playing song:\n" + list.library[song]["url"]);
-				});
+				message.delete();
+				message.author.sendMessage(":wave: Source for the currently playing song:\n" + now_playing[message.guild.id]["url"]);
 			}
 
 			else if(params[1] == "skip" || params[1] == "next" || params[1] == ":track_next:") {
