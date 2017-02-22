@@ -993,11 +993,11 @@ DiscordClient.on('message', function(message) {
 						var song = list.library[i];
 
 						terms.some(function(v) {
-							if(song.title.toLowerCase().indexOf(v) > -1) {
+							if(song.title.toString().toLowerCase().indexOf(v) > -1) {
 								found.push("`" + song.uid + "` **" + song.title + "** by *" + song.artist + "*");
 							} else {
 								if("artist" in song) {
-									if(song.artist.toLowerCase().indexOf(v) > -1) {
+									if(song.artist.toString().toLowerCase().indexOf(v) > -1) {
 										found.push("`" + song.uid + "` **" + song.title + "** by *" + song.artist + "*");
 									}
 								}

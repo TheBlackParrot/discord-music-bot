@@ -64,8 +64,8 @@ if(fs.existsSync(dir)) {
 
 				var parts = {
 					"url": "file://" + file,
-					"artist": metadata.artist,
-					"title": metadata.title,
+					"artist": metadata.artist.toString(),
+					"title": metadata.title.toString(),
 					"timestamp": now
 				};
 
