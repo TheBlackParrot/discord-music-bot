@@ -46,7 +46,7 @@ for x in range(0, 50):
 	}
 
 	with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-		info_dict = ydl.extract_info('ytsearch1:{}'.format(query), download=False)
+		info_dict = ydl.extract_info('ytsearch1:{} Audio'.format(query), download=False)
 		video_id = info_dict["entries"][0].get("id", None)
 		row["url"] = "https://youtu.be/{}".format(video_id)
 
