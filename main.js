@@ -95,13 +95,39 @@ function cacheTrack(list, index, callback) {
 }
 
 function getVoiceChannelName(guildID) {
-	var room = "Music";
+	var def_rooms = settings.discord.try_channels;
+	var guild = DiscordClient.guilds.get(guildID);
+
+	if(guildID in channel_designations) {
+		room = channel_designations[guildID]
+		if(!guild.channels.exists("name", room)) {
+			most_recent_text_channel[guildID].sendMessage(":question: *" + room + "* does not exist. Falling back to default.");
+
+			for(var i in def_rooms) {
+				var def_room = def_rooms[i];
+
+				if(guild.channels.exists("name", def_room)) {
+					var room = def_room;
+					channel_designations[guildID] = def_room;
+					break;
+				}
+			}
+		}
+	} else {
+		for(var i in def_rooms) {
+			var def_room = def_rooms[i];
+
+			if(guild.channels.exists("name", def_room)) {
+				var room = def_room;
+				channel_designations[guildID] = def_room;
+				break;
+			}
+		}
+	}
+
 	console.log("GVCN: GID " + guildID);
 	console.log("GVCN: CD " + channel_designations);
-	if(guildID in channel_designations) {
-		console.log("guildID in channel_designations");
-		room = channel_designations[guildID]
-	}
+	console.log("GVCN: ROOM " + room);
 
 	return room;	
 }
@@ -578,7 +604,7 @@ function getQueue(guildID) {
 	if(!("list" in queue[guildID])) {
 		queue[guildID]["list"] = [];
 	}
-	var main_list = queue[guildID]["list"];
+	var main_list = queue[guildID]["list"].slice(1);
 
 	if(!("user_queue" in queue[guildID])) {
 		queue[guildID]["user_queue"] = [];
@@ -586,6 +612,22 @@ function getQueue(guildID) {
 	var user_list = queue[guildID]["user_queue"];
 
 	return user_list.concat(main_list);
+}
+
+function findTrackByUID(library, uid) {
+	var wanted = library.filter(function(song) {
+		return song.uid == uid;
+	});
+
+	if(!wanted.length) {
+		return "This track does not exist.";
+	}
+
+	if(wanted.length > 1) {
+		return "There are songs that also have this UID present. Please alert a developer and mention which list is currently active.\nThis is a hash collision.";
+	}
+
+	return wanted[0];
 }
 
 DiscordClient.on('message', function(message) {
@@ -627,17 +669,23 @@ DiscordClient.on('message', function(message) {
 
 					queue[guildID]["list"] = [];
 					addToQueue(guildID, 10);
+
+					var queue_in_use = queue[guildID]["list"];
+					if(queue[guildID]["user_queue"].length > 0) {
+						console.log("using the user queue... (play cmd)");
+						queue_in_use = queue[guildID]["user_queue"]
+					}
 					
 					if(_c) {
 						console.log("connected...");
 						if(!_c.speaking) {
 							getListData(queue[guildID]["cur_list"], function(source) {
-								playTrack(message.channel, guildID, source, queue[guildID]["list"][0]);
+								playTrack(message.channel, guildID, source, queue_in_use[0]);
 							});
 						}
 					} else {
 						getListData(queue[guildID]["cur_list"], function(source) {
-							playTrack(message.channel, guildID, source, queue[guildID]["list"][0]);
+							playTrack(message.channel, guildID, source, queue_in_use[0]);
 						});								
 					}
 				} else {
@@ -810,7 +858,7 @@ DiscordClient.on('message', function(message) {
 					var connection = message.guild.voiceConnection;
 					if(connection) {
 						if(connection.player) {
-							connection.player.dispatcher.end();
+							connection.player.dispatcher.end("stopped");
 						}
 					}
 
@@ -820,6 +868,7 @@ DiscordClient.on('message', function(message) {
 						queue[guildID] = {};
 					}
 					queue[guildID]["list"] = [];
+					queue[guildID]["user_queue"] = [];
 					queue[guildID]["cur_list"] = index;
 
 					message.reply("Set the active list to " + list.name + ", managed by " + list.manager);
@@ -854,22 +903,6 @@ DiscordClient.on('message', function(message) {
 				}
 
 				getListData(queue[message.guild.id]["cur_list"], function(list) {
-					var wanted = list.library.filter(function(song) {
-						return song.uid == params[2];
-					});
-
-					if(!wanted.length) {
-						message.reply("This track does not exist.");
-						return;
-					}
-
-					if(wanted.length > 1) {
-						message.reply("There are songs that also have this UID present. Please alert a developer and mention which list is currently active.\nYes, this is a hash collision.");
-						return;
-					}
-
-					wanted = wanted[0];
-
 					if(!("user_queue" in queue[message.guild.id])) {
 						queue[message.guild.id]["user_queue"] = [];
 					}
@@ -884,10 +917,18 @@ DiscordClient.on('message', function(message) {
 						return;
 					}
 
-					queue[message.guild.id]["user_queue"].push({
-						"author": message.author.id,
-						"index": list.library.indexOf(wanted)
-					});
+					wanted = findTrackByUID(list.library, params[2]);
+
+					if(typeof wanted !== "string") {
+						queue[message.guild.id]["user_queue"].push({
+							"author": message.author.id,
+							"index": list.library.indexOf(wanted)
+						});
+
+						message.reply(":notepad_spiral: Queued up **" + wanted.title + "**");
+					} else {
+						message.reply(wanted);
+					}
 				});
 			}
 
@@ -943,16 +984,20 @@ DiscordClient.on('message', function(message) {
 				}
 				var found = [];
 
+				terms = terms.map(function(term) {
+					return term.toLowerCase();
+				});
+
 				getListData(queue[guildID]["cur_list"], function(list) {
 					for(var i in list.library) {
 						var song = list.library[i];
 
 						terms.some(function(v) {
-							if(song.title.indexOf(v) > -1) {
+							if(song.title.toLowerCase().indexOf(v) > -1) {
 								found.push("`" + song.uid + "` **" + song.title + "** by *" + song.artist + "*");
 							} else {
 								if("artist" in song) {
-									if(song.artist.indexOf(v) > -1) {
+									if(song.artist.toLowerCase().indexOf(v) > -1) {
 										found.push("`" + song.uid + "` **" + song.title + "** by *" + song.artist + "*");
 									}
 								}
@@ -976,6 +1021,46 @@ DiscordClient.on('message', function(message) {
 				});
 			}
 
+			else if(params[1] == "show") {
+				if(params.length < 3) {
+					return;
+				}
+
+				if(!params[2]) {
+					return;
+				}
+
+				getListData(queue[message.guild.id]["cur_list"], function(list) {
+					var wanted = findTrackByUID(list.library, params[2]);
+
+					if(typeof wanted === "string") {
+						message.reply(wanted);
+						return;
+					}
+
+					var out = [];
+					
+					var str = ":musical_note: **" + wanted.title + "**";
+					if("artist" in wanted) {
+						str = str + " by *" + wanted.artist + "*";
+					}
+					out.push(str);
+
+					if(wanted.timestamp > 0) {
+						var d = new Date(wanted.timestamp*1000);
+						out.push(":clock2: **Added On:** " + d.toString());
+					} else {
+						out.push(":clock2: **Added On:** Unknown");
+					}
+
+					out.push(":name_badge: **Unique Identifier**: `" + wanted.uid + "`");
+
+					out.push("`" + wanted.url + "`");
+
+					message.channel.sendMessage(out.join("\n"));
+				});
+			}
+
 			else if(params[1] == "help") {
 				var lines = [
 					"***THIS IS STILL A WORK IN PROGRESS!***",
@@ -988,6 +1073,7 @@ DiscordClient.on('message', function(message) {
 					"`list [number] detail`: Shows more details about a list.",
 					"`play`: Starts playing from the playlist.",
 					"`queue`: Shows what will play next.",
+					"`queue [song uid]`: Queues a song to play [limit of 5 per user].",
 					"`pause`/`toggle`: Pauses/resumes playback",
 					"`stop`: Stops playback.",
 					"`channel [voice channel]`: *(KICK_MEMBERS permission needed!)* Switches the voice channel to connect to.",
@@ -996,7 +1082,8 @@ DiscordClient.on('message', function(message) {
 					"`list_format`: DM's an example list to show what playlists should look like.",
 					"`skip`: Votes to skip a song. 50% majority of the voice channel is needed.",
 					"`skip force`: *(KICK_MEMBERS permission needed!)* Forcibly skips a song, disregarding votes.",
-					"`search [page#] [terms]`: Search through the active playlist, looking at titles and artists."
+					"`search [page#] [terms]`: Search through the active playlist, looking at titles and artists.",
+					"`show [song uid]`: Shows extra details about a track."
 				];
 
 				message.author.sendMessage(lines.join("\n"));

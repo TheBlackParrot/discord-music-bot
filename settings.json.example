@@ -1,7 +1,25 @@
 {
 	"discord": {
 		"token": "[BOT USER TOKEN]",
-		"owner_id": "[USER ACCOUNT ID e.g. "101812335823298560"]"
+		"owner_id": "[USER ACCOUNT ID e.g. "101812335823298560"]",
+		"try_channels": [
+			"Music",
+			"music",
+			"Radio",
+			"radio"
+			"Bots",
+			"bots",
+			"Lobby",
+			"lobby",
+			"General",
+			"general",
+			"General 1",
+			"general 1",
+			"Off-topic",
+			"Off-Topic",
+			"Spam",
+			"AFK"
+		]
 	},
 
 	"enable": {
